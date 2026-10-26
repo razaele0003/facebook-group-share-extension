@@ -1,0 +1,8 @@
+{
+  "name": "facebook-group-share-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test tests/*.test.js", "check": "node --check background.js && node --check coordinator.js && node --check adapter.js && node --check panel.js && node --check core.js", "package": "node scripts/package.js" },
+  "devDependencies": { "jsdom": "^26.1.0", "@playwright/test": "^1.58.0" }
+}

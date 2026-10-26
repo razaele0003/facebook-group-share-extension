@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>Group Share Assistant</title><link rel="stylesheet" href="panel.css"><script type="module" src="panel.js"></script></head>
+<body>
+  <header class="app-header">
+    <div class="brand-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m8 11 8-5M8 13l8 5"/><circle cx="5" cy="12" r="3"/><circle cx="19" cy="5" r="3"/><circle cx="19" cy="19" r="3"/></svg></div>
+    <div><p class="eyebrow">YOUR POST. YOUR COMMUNITIES.</p><h1>Group Share</h1></div>
+    <span class="local-badge">Local</span>
+  </header>
+  <main>
+    <p class="intro">One post, the right groups.<br>Review once. Share in order.</p>
+    <ol class="steps" aria-label="Sharing steps"><li class="active"><span>1</span>Post</li><li id="groupsStep"><span>2</span>Groups</li><li id="reviewStep"><span>3</span>Review & share</li></ol>
+    <div id="error" class="notice error" role="alert" tabindex="-1" hidden></div>
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+    <section class="card" aria-labelledby="sourceHeading">
+      <div class="section-title"><h2 id="sourceHeading">Choose your post</h2><span class="step-label">01</span></div>
+      <label for="sourceUrl">Facebook post link</label>
+      <input id="sourceUrl" type="url" placeholder="https://www.facebook.com/…" autocomplete="off" spellcheck="false" aria-describedby="sourceHelp">
+      <p id="sourceHelp" class="help">Open one post, photo, video, or reel—not a profile or feed.</p>
+      <div class="button-row"><button id="currentPost" class="secondary">Use current post</button><button id="findGroups" class="primary">Find groups <span aria-hidden="true">→</span></button></div>
+      <div id="identity" class="identity" hidden><span class="avatar" aria-hidden="true" id="actorInitial"></span><div><span class="help">Sharing as</span><strong id="actorName"></strong></div><span class="verified">Verified</span></div>
+      <p class="help quiet">A separate Facebook tab handles preparation. Your existing drafts stay in place.</p>
+    </section>
+    <section class="card" aria-labelledby="groupsHeading">
+      <div class="section-title"><h2 id="groupsHeading">Choose your groups</h2><span id="selectedCount" class="count">0 selected</span></div>
+      <label class="sr-only" for="groupSearch">Search available groups</label><input type="search" id="groupSearch" placeholder="Search groups…" autocomplete="off">
+      <div class="selection-tools"><button id="selectVisible" class="text-button">Select visible</button><button id="selectFavorites" class="text-button">Use favorites</button><button id="clearSelection" class="text-button">Clear</button></div>
+      <div id="groupList" class="group-list" role="group" aria-label="Available groups"><div class="empty"><span class="empty-symbol" aria-hidden="true">◎</span><strong>Your communities go here</strong><p>Choose a post and find the groups available to your current Page or profile.</p></div></div>
+      <p class="help quiet">Favorites belong to the active Page or profile. Group links distinguish groups with the same name.</p>
+    </section>
+    <section class="card" aria-labelledby="captionHeading"><div class="section-title"><h2 id="captionHeading">Add a caption</h2><span class="optional">Optional</span></div><label class="sr-only" for="caption">Caption for all selected groups</label><textarea id="caption" rows="3" maxlength="5000" placeholder="Say something to your communities…"></textarea><div class="caption-footer"><span class="help">The same caption in every group.</span><span class="help" id="captionCount">0 / 5,000</span></div></section>
+    <section id="batchSection" class="card" aria-labelledby="batchHeading" hidden><div class="section-title"><h2 id="batchHeading">Sharing progress</h2><span id="batchStatus" class="count"></span></div><p id="batchMessage" class="help"></p><progress id="batchProgress" max="1" value="0" aria-label="Destinations processed"></progress><p id="nextShare" class="help"></p><div class="button-row controls"><button id="pauseBatch" class="secondary">Pause</button><button id="resumeBatch" class="primary">Resume remaining</button><button id="stopBatch" class="danger">Stop</button><button id="workingTab" class="secondary">View Facebook</button></div><ol id="results" class="results"></ol></section>
+  </main>
+  <footer class="sticky-footer"><p id="footerSummary">Choose a post to get started.</p><button id="reviewBatch" class="primary full" disabled>Review batch <span aria-hidden="true">→</span></button><button id="stopDiscovery" class="secondary full" hidden>Stop finding groups</button><p class="footer-note">One group at a time · 30 seconds between shares</p></footer>
+  <dialog id="reviewDialog" aria-labelledby="reviewHeading"><div class="dialog-content"><p class="eyebrow">READY WHEN YOU ARE</p><h2 id="reviewHeading">Review your batch</h2><p class="help">Start shares this original post to the groups below using Facebook’s native composer.</p><dl class="review-details"><dt>Sharing as</dt><dd id="reviewActor"></dd><dt>Original post</dt><dd><a id="reviewSource" target="_blank" rel="noreferrer">Open source post ↗</a></dd><dt>Caption</dt><dd id="reviewCaption" class="preserve-lines"></dd></dl><p id="reviewGroupCount" class="group-total"></p><ul id="reviewGroups" class="review-groups"></ul><p class="help">Keep Chrome open. Pause or Stop prevents further submissions; an in-flight share may still finish.</p><div class="button-row"><button id="editBatch" class="secondary">Back to edit</button><button id="startBatch" class="primary">Start sharing</button></div></div></dialog>
+</body></html>
