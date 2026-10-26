@@ -19,14 +19,16 @@
       <p id="sourceHelp" class="help">Open one post, photo, video, or reel—not a profile or feed.</p>
       <div class="button-row"><button id="currentPost" class="secondary">Use current post</button><button id="findGroups" class="primary">Find groups <span aria-hidden="true">→</span></button></div>
       <div id="identity" class="identity" hidden><span class="avatar" aria-hidden="true" id="actorInitial"></span><div><span class="help">Sharing as</span><strong id="actorName"></strong></div><span class="verified">Verified</span></div>
-      <p class="help quiet">A separate Facebook tab handles preparation. Your existing drafts stay in place.</p>
+      <p id="sourceModeHelp" class="help quiet">Import joined groups below, or use Find groups to read the native share picker.</p>
     </section>
     <section class="card" aria-labelledby="groupsHeading">
       <div class="section-title"><h2 id="groupsHeading">Choose your groups</h2><span id="selectedCount" class="count">0 selected</span></div>
+      <div class="button-row import-actions"><button id="importJoined" class="primary">Import from this page</button><button id="openJoined" class="secondary">Open Your groups ↗</button></div>
+      <p id="groupImportHelp" class="help quiet">Open Facebook → Groups → Your groups, then import the cards on that page. No Share dialog is opened.</p>
       <label class="sr-only" for="groupSearch">Search available groups</label><input type="search" id="groupSearch" placeholder="Search groups…" autocomplete="off">
       <div class="selection-tools"><button id="selectVisible" class="text-button">Select visible</button><button id="selectFavorites" class="text-button">Use favorites</button><button id="clearSelection" class="text-button">Clear</button></div>
       <div id="groupList" class="group-list" role="group" aria-label="Available groups"><div class="empty"><span class="empty-symbol" aria-hidden="true">◎</span><strong>Your communities go here</strong><p>Choose a post and find the groups available to your current Page or profile.</p></div></div>
-      <p class="help quiet">Favorites belong to the active Page or profile. Group links distinguish groups with the same name.</p>
+      <p class="help quiet">Group links distinguish matching names. Facebook checks each group’s sharing eligibility during preparation.</p>
     </section>
     <section class="card" aria-labelledby="captionHeading"><div class="section-title"><h2 id="captionHeading">Add a caption</h2><span class="optional">Optional</span></div><label class="sr-only" for="caption">Caption for all selected groups</label><textarea id="caption" rows="3" maxlength="5000" placeholder="Say something to your communities…"></textarea><div class="caption-footer"><span class="help">The same caption in every group.</span><span class="help" id="captionCount">0 / 5,000</span></div></section>
     <section id="batchSection" class="card" aria-labelledby="batchHeading" hidden><div class="section-title"><h2 id="batchHeading">Sharing progress</h2><span id="batchStatus" class="count"></span></div><p id="batchMessage" class="help"></p><progress id="batchProgress" max="1" value="0" aria-label="Destinations processed"></progress><p id="nextShare" class="help"></p><div class="button-row controls"><button id="pauseBatch" class="secondary">Pause</button><button id="resumeBatch" class="primary">Resume remaining</button><button id="stopBatch" class="danger">Stop</button><button id="workingTab" class="secondary">View Facebook</button></div><ol id="results" class="results"></ol></section>

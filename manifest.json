@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Group Share Assistant",
   "description": "Review a Facebook post and selected groups, then share sequentially through Facebook’s native composer.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minimum_chrome_version": "120",
   "permissions": ["activeTab", "scripting", "storage", "sidePanel", "alarms"],
   "optional_host_permissions": ["https://www.facebook.com/*"],

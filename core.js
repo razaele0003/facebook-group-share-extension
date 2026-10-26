@@ -31,7 +31,7 @@ export function assertIdentity(expected, actual) {
 export const ledgerKey = (source, actor, group) => JSON.stringify([source, identityKey(actor), groupKey(group)]);
 
 export function initialState() {
-  return { schema: 1, discovery: null, batch: null, ledger: {}, favorites: {}, workingTabId: null, operation: null, notice: '' };
+  return { schema: 1, discovery: null, joinedGroups: null, batch: null, ledger: {}, favorites: {}, workingTabId: null, operation: null, notice: '' };
 }
 export function createBatch(discovery, keys, caption, ledger, now = Date.now(), id = crypto.randomUUID()) {
   if (!discovery?.identity?.fingerprint) throw new Error('Find groups to verify the posting identity first.');

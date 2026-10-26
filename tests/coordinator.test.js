@@ -93,3 +93,23 @@ test('storage failure prevents authorization instead of allowing an unrecorded s
   await until(() => c.state.batch.items[0].status === 'failed' && !c.state.operation);
   assert.equal(grants, 0); assert.equal(Object.keys(c.state.ledger).length, 0); assert.equal(c.state.batch.status, 'paused');
 });
+test('joined import reads the requested tab without creating or navigating a working tab', async () => {
+  const mock = fakeAPI(); const c = new Coordinator(mock.api); await c.ready; let created = 0; let navigated = 0;
+  mock.api.tabs.get = async id => ({ id, url: 'https://www.facebook.com/groups/joins/', status: 'complete' });
+  mock.api.tabs.create = async () => { created++; throw new Error('Unexpected new tab'); }; mock.api.tabs.update = async () => { navigated++; throw new Error('Unexpected navigation'); };
+  mock.api.tabs.sendMessage = async (id, m) => { assert.equal(id, 55); assert.equal(m.type, 'IMPORT_JOINED'); return { ok: true, data: { groups, fingerprint: actor.fingerprint, count: 3, pageUrl: 'https://www.facebook.com/groups/joins/' } }; };
+  const result = await c.importJoined(55); assert.equal(result.joinedGroups.count, 3); assert.equal(result.discovery, null); assert.equal(created, 0); assert.equal(navigated, 0); assert.equal(result.operation, null);
+});
+test('checking an imported-list post only requests identity inspection and rejects another account', async () => {
+  const saved = initialState(); saved.joinedGroups = { groups, fingerprint: actor.fingerprint, count: 3 }; const mock = fakeAPI(saved), c = new Coordinator(mock.api); await c.ready;
+  mock.api.tabs.sendMessage = async (id, m) => { assert.equal(m.type, 'INSPECT_POST'); return { ok: true, data: { identity: actor, sourceUrl, pageUrl: 'https://www.facebook.com/profile.php?id=123', preview: {} } }; };
+  const result = await c.discover(sourceUrl, true); assert.equal(result.discovery.groupSource, 'joined'); assert.equal(result.discovery.groups.length, 3); assert.equal(result.discovery.sourceUrl, sourceUrl);
+  mock.api.tabs.sendMessage = async () => ({ ok: true, data: { identity: { ...actor, fingerprint: '/other.jpg' }, sourceUrl } });
+  await assert.rejects(c.discover(sourceUrl, true), /differs from the imported group list/); assert.equal(c.state.joinedGroups.count, 3); assert.equal(c.state.discovery, null);
+});
+test('Stop during an import rejects a late response and keeps the previous list', async () => {
+  const saved = initialState(); saved.joinedGroups = { groups: [], fingerprint: actor.fingerprint, count: 0 }; const mock = fakeAPI(saved), c = new Coordinator(mock.api); await c.ready;
+  mock.api.tabs.get = async id => ({ id, url: 'https://www.facebook.com/groups/joins/', status: 'complete' });
+  mock.api.tabs.sendMessage = async (id, m) => { if (m.type === 'CANCEL') return { ok: true }; await c.control('stop'); return { ok: true, data: { groups, fingerprint: actor.fingerprint, count: 3 } }; };
+  await assert.rejects(c.importJoined(55), /import stopped/); assert.equal(c.state.joinedGroups.count, 0); assert.equal(c.state.operation, null);
+});

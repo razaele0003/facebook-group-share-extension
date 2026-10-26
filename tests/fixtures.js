@@ -9,7 +9,7 @@ export const groups = [
 ];
 export const discovery = () => ({ sourceUrl, identity: actor, groups: structuredClone(groups), preview: { title: 'Example post', text: 'A community update with original attribution.' }, revision: 'revision-a' });
 const avatar = '<svg><image href="https://example.invalid/avatar-a.jpg"></image></svg>';
-export function shareHtml(name = actor.name) { return `<div role="dialog" aria-label="Share"><h2>Share</h2><form>${avatar}<span>${name}</span><button type="button">Feed</button><button type="button">Public</button><div role="textbox" contenteditable="true" aria-label="Say something about this..."></div><button type="button" aria-label="Share to a group">Group</button></form></div>`; }
+export function shareHtml(name = actor.name) { return `<div role="dialog" aria-label="Share"><h2>Share</h2><button type="button" aria-label="Close">Close</button><form>${avatar}<span>${name}</span><button type="button">Feed</button><button type="button">Public</button><div role="textbox" contenteditable="true" aria-label="Say something about this..."></div><button type="button" aria-label="Share to a group">Group</button></form></div>`; }
 export function pickerHtml(list = groups) { return `<div role="dialog"><h2>Share to a group</h2><button aria-label="Close">Close</button><input role="combobox" aria-label="Search for groups"><div role="list">${list.map(g => `<div role="button">${g.id ? `<a href="https://www.facebook.com/groups/${g.id}/"><img alt="${g.name}"></a>` : ''}<span>${g.name}</span><span>${g.privacy}</span></div>`).join('')}</div></div>`; }
 export function composerHtml(name = actor.name, attach = true) { return `<div role="dialog"><h2>Create post</h2>${avatar}<span>${name}</span><button disabled>Public group</button><div role="textbox" contenteditable="true" aria-label="Create a public post…"></div><section>${attach ? '<a href="/photo/?fbid=123456">Original photo</a>' : ''}<h2>Original author, different identity</h2></section><button id="post">Post</button></div>`; }
 export async function fixture(options = {}) {
@@ -29,6 +29,7 @@ export async function fixture(options = {}) {
   };
   window.document.querySelector('button').onclick = () => {
     window.document.body.innerHTML = shareHtml(options.shareActor);
+    window.document.querySelector('[aria-label="Close"]').onclick = () => { window.document.body.innerHTML = ''; };
     window.document.querySelector('[aria-label="Share to a group"]').onclick = () => {
       window.document.body.innerHTML = pickerHtml(options.groups);
       window.document.querySelector('[aria-label="Close"]').onclick = () => { window.document.body.innerHTML = ''; };

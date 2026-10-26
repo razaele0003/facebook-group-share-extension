@@ -63,25 +63,62 @@ export class Coordinator {
       return response.data;
     } finally { clearTimeout(timer); }
   }
-  async discover(source) {
+  async importJoined(tabId) {
+    await this.ready; await this.permission();
+    const tab = await this.api.tabs.get(tabId);
+    const url = new URL(tab.url || 'about:blank');
+    if (url.origin !== ORIGIN || !/^\/groups\/joins\/?$/.test(url.pathname)) throw new Error('Open Facebook → Groups → Your groups, then click Import from this page.');
+    const id = crypto.randomUUID();
+    await this.tx(s => {
+      if (s.operation || ['running', 'paused'].includes(s.batch?.status)) throw new Error('Stop the current batch before importing a new group list.');
+      s.operation = { id, type: 'import', tabId, cancelled: false }; s.notice = 'Reading your joined-group cards from this page…';
+    });
+    try {
+      await this.api.scripting.executeScript({ target: { tabId }, files: ['adapter.js'] });
+      const result = await this.rpc(tabId, { type: 'IMPORT_JOINED', operationId: id });
+      if (!result.fingerprint || !Array.isArray(result.groups) || result.groups.length !== result.count) throw new Error('The joined-group import could not be verified.');
+      const seen = new Set();
+      for (const group of result.groups) {
+        if (!group.id || !/^[\w.\-]+$/.test(group.id) || !group.name || seen.has(groupKey(group))) throw new Error('The imported list contains an invalid or duplicate group.');
+        seen.add(groupKey(group));
+      }
+      await this.tx(s => {
+        if (s.operation?.id !== id || s.operation.cancelled) throw new Error('Group import stopped.');
+        s.joinedGroups = { ...result, importedAt: this.now() };
+        if (s.discovery?.identity?.fingerprint === result.fingerprint) s.discovery = { ...s.discovery, groups: result.groups, revision: id, groupSource: 'joined' };
+        else s.discovery = null;
+        s.notice = `Imported ${result.count} joined groups. Select destinations, then check your post before sharing.`;
+      });
+    } catch (error) { await this.tx(s => { s.notice = error.message; }); throw error; }
+    finally { await this.tx(s => { if (s.operation?.id === id) s.operation = null; }); }
+    return this.snapshot();
+  }
+  async discover(source, useJoined = false) {
     await this.ready; const sourceUrl = normalizePostUrl(source); const id = crypto.randomUUID();
     await this.tx(s => {
       if (s.operation || s.batch?.status === 'running' || s.batch?.status === 'paused') throw new Error('Stop the current batch before finding groups for another post.');
-      s.operation = { id, type: 'discover', cancelled: false }; s.notice = 'Finding your available groups in the working tab…';
+      if (useJoined && !s.joinedGroups) throw new Error('Import your joined groups first.');
+      s.operation = { id, type: useJoined ? 'inspect' : 'discover', cancelled: false }; s.notice = useJoined ? 'Checking the source post and posting identity…' : 'Finding your available groups in the working tab…';
       s.discovery = null;
     });
     try {
       const tabId = await this.workingTab(sourceUrl);
       if (this.state.operation?.cancelled) throw new Error('Group discovery stopped.');
-      const result = await this.rpc(tabId, { type: 'DISCOVER', operationId: id });
-      const canonical = normalizePostUrl(result.sourceUrl);
+      const result = await this.rpc(tabId, { type: useJoined ? 'INSPECT_POST' : 'DISCOVER', operationId: id });
+      let canonical;
+      for (const candidate of [result.pageUrl, result.sourceUrl, sourceUrl]) { try { canonical = normalizePostUrl(candidate); break; } catch {} }
+      if (!canonical) throw new Error('The original post link could not be verified.');
+      if (useJoined) {
+        if (result.identity?.fingerprint !== this.state.joinedGroups.fingerprint) throw new Error('This post’s active Page or profile differs from the imported group list. Switch to the intended identity and import again.');
+        result.groups = structuredClone(this.state.joinedGroups.groups); result.groupSource = 'joined';
+      }
       const seen = new Set();
       result.groups = result.groups.filter(g => { const k = groupKey(g); if (seen.has(k)) return false; seen.add(k); return true; });
       if (!result.identity?.name || !result.identity?.fingerprint) throw new Error('Facebook did not expose a verifiable posting identity.');
       await this.tx(s => {
         if (s.operation?.id !== id || s.operation.cancelled) throw new Error('Group discovery stopped.');
         s.discovery = { ...result, sourceUrl: canonical, discoveredAt: this.now(), revision: id };
-        s.notice = `Found ${result.groups.length} groups. Select destinations and review your batch.`;
+        s.notice = useJoined ? `Post and identity checked. ${result.groups.length} imported groups ready for review.` : `Found ${result.groups.length} groups. Select destinations and review your batch.`;
       });
     } catch (error) {
       await this.tx(s => { s.notice = error.message; }); throw error;
@@ -126,7 +163,8 @@ export class Coordinator {
     });
     if (action !== 'resume') {
       await this.api.alarms.clear('gsa-next');
-      if (this.state.workingTabId != null) { try { await this.api.tabs.sendMessage(this.state.workingTabId, { gsa: true, type: 'CANCEL' }); } catch {} }
+      const target = this.state.operation?.tabId ?? this.state.workingTabId;
+      if (target != null) { try { await this.api.tabs.sendMessage(target, { gsa: true, type: 'CANCEL' }); } catch {} }
     } else void this.tick();
     return this.snapshot();
   }
@@ -181,7 +219,7 @@ export class Coordinator {
   }
   async interrupted(tabId, reason) {
     await this.ready;
-    if (this.state.workingTabId !== tabId || this.navigating.has(tabId)) return;
+    if ((this.state.workingTabId !== tabId && this.state.operation?.tabId !== tabId) || this.navigating.has(tabId)) return;
     await this.tx(s => {
       if (s.batch?.status === 'running') { s.batch.status = 'paused'; s.batch.message = reason; }
       if (s.operation) s.operation.cancelled = true;

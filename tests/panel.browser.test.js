@@ -21,25 +21,40 @@ test('Chrome panel: group selection, favorites, caption review, queue controls, 
     await context.route('**/*', route => route.request().url().startsWith('http://127.0.0.1:') ? route.continue() : route.abort());
     const s = initialState(); s.discovery = discovery();
     await context.addInitScript(saved => {
-      const model = structuredClone(saved); window.testMessages = [];
+      const model = structuredClone(saved), verified = structuredClone(model.discovery); model.discovery = null; window.testMessages = [];
       const api = {
         runtime: { id: 'local-test', sendMessage: async m => {
           window.testMessages.push(m);
+          if (m.type === 'IMPORT_JOINED') model.joinedGroups = { groups: verified.groups.map(g => ({ ...g, privacy: 'Joined group' })), fingerprint: verified.identity.fingerprint, count: verified.groups.length };
+          if (m.type === 'CHECK_POST') model.discovery = { ...verified, groups: model.joinedGroups.groups, revision: 'checked-post', groupSource: 'joined' };
           if (m.type === 'FAVORITE') { const actor = `${model.discovery.identity.name}|${model.discovery.identity.fingerprint}`; model.favorites[actor] = m.enabled ? [m.group] : []; }
           if (m.type === 'START') {
             model.batch = { id: 'mock', identity: model.discovery.identity, sourceUrl: model.discovery.sourceUrl, status: 'running', message: 'Preparing selected groups.', nextAt: Date.now(), items: m.groups.map(id => ({ id, group: model.discovery.groups.find(g => `id:${g.id}` === id), status: 'queued', detail: '' })) };
           }
           if (m.type === 'CONTROL') model.batch.status = ({ pause: 'paused', resume: 'running', stop: 'stopped' })[m.action];
           return { ok: true, state: structuredClone(model) };
-        } }, storage: { onChanged: { addListener() {} } }, permissions: { request: async () => true }, tabs: { query: async () => [{ url: 'https://www.facebook.com/profile.php?id=1' }], update: async () => ({ windowId: 1 }) }, windows: { update: async () => {} }
+        } }, storage: { onChanged: { addListener() {} } }, permissions: { request: async () => true }, tabs: { query: async () => [{ id: 55, url: 'https://www.facebook.com/profile.php?id=1' }], update: async () => ({ windowId: 1 }) }, windows: { update: async () => {} }
       };
       Object.defineProperty(window, 'chrome', { configurable: true, value: api });
     }, s);
     const page = await context.newPage(), errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.goto(`http://127.0.0.1:${server.address().port}/panel.html`);
-    await page.getByText('Example Publishing', { exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Import from this page' }).click();
+    await page.getByText('3 joined groups imported. Choose a post and destinations.', { exact: true }).waitFor();
+    assert.equal(await page.locator('#identity').isVisible(), false);
     assert.equal(await page.locator('input[type=checkbox]').count(), 3);
+    assert.equal(await page.locator('.favorite').nth(0).isDisabled(), true);
+    await page.getByLabel('Facebook post link').fill(s.discovery.sourceUrl);
     await page.locator('input[type=checkbox]').nth(0).check(); await page.locator('input[type=checkbox]').nth(1).check();
+    await mkdir(join(root, 'test-results'), { recursive: true });
+    await page.screenshot({ path: join(root, 'test-results', 'joined-import-light.png'), fullPage: true });
+    await page.getByRole('button', { name: 'Check post & review' }).click();
+    await page.getByRole('dialog').waitFor();
+    assert.equal(await page.locator('#reviewGroups li').count(), 2);
+    assert.equal((await page.evaluate(() => window.testMessages.filter(m => m.type === 'CHECK_POST'))).length, 1);
+    assert.equal((await page.evaluate(() => window.testMessages.filter(m => m.type === 'DISCOVER'))).length, 0);
+    await page.getByRole('button', { name: 'Back to edit' }).click();
+    assert.equal(await page.locator('input[type=checkbox]:checked').count(), 2);
     await page.locator('.favorite').nth(0).click(); await page.locator('.favorite[aria-pressed=true]').waitFor();
     await page.getByLabel('Caption for all selected groups').fill('Hello, communities!');
     await page.getByRole('button', { name: 'Review batch' }).click();

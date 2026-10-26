@@ -7,6 +7,7 @@ Group Share Assistant processes information locally in your Chrome profile. It s
 - The chosen post URL and an available visible text excerpt/title.
 - The active composer identity’s displayed name and avatar URL pathname fingerprint.
 - Available group names, privacy labels, IDs/URLs, and per-identity favorites.
+- An optional joined-group list imported from the visible Your groups page, its displayed total, and the active account’s avatar fingerprint. Joined membership does not establish eligibility to share as a Page.
 - The reviewed caption, selected destinations, queue state, timestamps, working-tab ID, and per-post duplicate ledger.
 
 Data is stored in `chrome.storage.local`; a browser-session marker is stored in `chrome.storage.session`. It is not synced by this extension. Uninstalling the extension removes its extension storage. No passwords, cookies, access tokens, browser history, or other sites’ content are collected.
@@ -20,6 +21,6 @@ Data is stored in `chrome.storage.local`; a browser-session marker is stored in 
 | `scripting` | Install the local DOM adapter in the dedicated Facebook working tab. |
 | `storage` | Persist favorites, reviewed batches, progress, and duplicate protection. |
 | `alarms` | Schedule the next destination and preserve progress across service-worker suspension. |
-| Optional `https://www.facebook.com/*` | Discover eligible groups and prepare/submit reviewed native shares on Facebook. Requested by Find groups. |
+| Optional `https://www.facebook.com/*` | Read joined-group cards, check post identity, discover eligible groups, and prepare/submit reviewed native shares on Facebook. Requested by Import from this page or the post-check/discovery button. |
 
 The extension does not request access to all websites or the browser’s cookies, downloads, history, or debugger. Its extension-page policy prohibits network connections and remote executable scripts.

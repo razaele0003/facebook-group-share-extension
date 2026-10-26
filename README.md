@@ -4,24 +4,30 @@ A local Chrome extension for sharing **one original Facebook post** to groups yo
 
 ## Install
 
-1. Extract `group-share-assistant-1.0.0.zip` if using the ZIP. Keep the extracted folder in a permanent location.
+1. Extract `group-share-assistant-1.1.0.zip` if using the ZIP. Keep the extracted folder in a permanent location.
 2. In Chrome, open `chrome://extensions` and turn on **Developer mode**.
-3. Click **Load unpacked** and choose the `group-share-assistant-1.0.0` folder containing `manifest.json`.
+3. Click **Load unpacked** and choose the `group-share-assistant-1.1.0` folder containing `manifest.json`.
 4. Pin **Group Share Assistant** from Chrome’s Extensions menu. Click its icon to open the side panel.
 
-If using the development project, the ready-to-load folder is `dist/group-share-assistant-1.0.0`. Chrome 120 or newer is required. No Node.js, Python, server, or API key is needed to use the packaged extension.
+If using the development project, the ready-to-load folder is `dist/group-share-assistant-1.1.0`. Chrome 120 or newer is required. No Node.js, Python, server, or API key is needed to use the packaged extension.
+
+### Update an existing installation
+
+Stop any running batch. Copy the **contents** of the new version’s extracted folder into the same folder Chrome already loads, replacing the extension files. At `chrome://extensions`, click **Reload** on Group Share Assistant, then refresh your Facebook tabs and reopen the side panel. Keeping the same installation folder and extension preserves local history, favorites, and duplicate protection. Do not remove the old extension or load a second copy while checking uncertain shares.
 
 ## Share a post
 
 1. Sign into Facebook and select the Page or profile you want to use.
-2. Open an individual post, photo, video, or reel. Use **Use current post**, or paste its full `https://www.facebook.com/...` link into the panel. Profile and feed links are rejected.
-3. Click **Find groups** and allow access to `www.facebook.com` when Chrome asks. The extension opens its own Facebook tab, opens the native Share → Share to a group picker, and reads available groups. It does not publish during discovery.
-4. Check the **Sharing as** identity. Search and select groups. The star saves favorites separately for each Page/profile; **Use favorites** selects available favorites for the current identity. Group URLs distinguish identical names.
+2. Open Facebook → Groups → **Your groups** (`https://www.facebook.com/groups/joins/`). In the side panel, click **Import from this page** and allow Facebook access if asked. This reads the main joined-group cards in the current tab, scrolls if needed, checks the displayed total, restores your scroll position, and never opens a Share dialog. **Open Your groups** is a shortcut to that page. Import works before you choose a post.
+3. Paste an individual post/photo/video/reel link, or open that post and click **Use current post**. Profile and feed links are rejected. Facebook share links that open a post viewer above a profile are supported.
+4. Search and select imported groups. Matching names remain separate by group URL. Click **Check post**, or proceed with **Check post & review**, to verify the source and active posting identity through the native Share sheet without opening its group picker. The imported list must match that identity’s avatar fingerprint. The star and **Use favorites** become available once the posting identity is verified. Joined membership does not guarantee that a group accepts shares from the active Page; actual eligibility is checked during preparation.
 5. Optionally add one caption for all selected groups.
-6. Click **Review batch**. Review the identity, original source link, caption, and full destination list. Click **Start sharing** to authorize those shares.
+6. Click **Review batch** (or **Check post & review** if the source still needs checking). Review the identity, original source link, caption, and full destination list. Click **Start sharing** to authorize those shares.
 7. Keep Chrome open. The extension uses the native group composer one destination at a time, preserves the original shared attachment, and waits at least 30 seconds after each confirmed result before preparing the next destination. Chrome can delay alarms while asleep.
 
 **Pause** stops preparation before the next submission. **Resume remaining** retries preparation failures and continues queued destinations. **Stop** ends the batch. An already submitted share cannot be recalled by these buttons. **View Facebook** opens the working tab for inspection.
+
+**Alternative discovery:** If you have not imported a joined-group list, **Find groups** still reads Facebook’s native Share → Share to a group picker in a dedicated working tab. It does not publish during discovery. Existing unrelated dialogs and caption drafts are protected; a permalink’s post-viewer dialog is recognized as the source post rather than rejected.
 
 ## Understand the results
 
@@ -41,12 +47,12 @@ The local duplicate ledger blocks destinations already posted, pending approval,
 
 - Closing the side panel does not cancel a reviewed running batch. Reopen the icon to see persisted progress.
 - After a browser restart, the queue stays paused until **Resume remaining** is clicked. A submission interrupted after intent becomes uncertain; preparation interrupted beforehand can resume.
-- If the posting identity changes, stop the batch, select the intended identity in Facebook, and use **Find groups** again. Identity checks compare the composer header’s name and avatar fingerprint, never the author of the attached post.
+- If the posting identity changes, stop the batch, select the intended identity in Facebook, import its joined groups again, and check your post. Identity checks compare the composer header’s name and avatar fingerprint, never the author of the attached post.
 - A changed avatar can require another discovery/review. Favorites are keyed to the verified identity fingerprint.
 - Login challenges, account restrictions, unexpected dialogs, ambiguous controls, and layout changes pause the operation. Complete any account/challenge actions yourself in Facebook, then review before resuming. The extension does not bypass restrictions.
 - Groups without a stable ID or group URL are unavailable for selection. Incomplete discovery is not saved. A post without a verifiable native shared attachment will not be submitted.
 - Use English Facebook on the normal desktop `www.facebook.com` site. Other languages, mobile Facebook, automatic new-post monitoring, scheduling, caption variations, private Facebook API calls, and Chrome Web Store distribution are outside this version.
-- If Chrome revokes the Facebook permission, the queue pauses. Grant it again through **Find groups** after stopping the existing batch.
+- If Chrome revokes the Facebook permission, the queue pauses. Grant it again through **Import from this page** or the source-check/discovery button after stopping the existing batch.
 - Removing the extension clears its local history and duplicate protection. Keep it installed while checking uncertain outcomes.
 
 ## Privacy and permissions
@@ -71,3 +77,5 @@ The packaged ZIP and unpacked folder include only runtime assets and documentati
 ## Validation scope
 
 Native Share → group selection → final Create post composer was inspected on desktop Facebook on October 27, 2026. The identity header, original photo attachment, and final Post control were checked without pressing Post. Automated fixtures exercise final submission confirmations; live publishing has **not** been tested. Facebook UI changes may require adapter updates.
+
+Version 1.1.0 adds joined-page import, separate post/identity inspection, and post-viewer dialog handling. A read-only check of the live Your groups page found 43 unique group URLs, matching Facebook’s displayed total, while excluding the sidebar. Automated tests cover lazy-loaded cards, incomplete lists, duplicate names, identity changes, cancellation, and the import-to-review panel workflow.

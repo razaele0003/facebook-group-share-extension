@@ -79,9 +79,27 @@
     }
     async openShare() {
       this.guard();
-      if (this.all('[role="dialog"]').length) throw fail('An unexpected dialog is already open in the working tab. Find groups again.');
+      const existing = this.dialog('Share');
+      if (existing) {
+        if (text(this.editor(existing))) throw fail('The Share dialog contains an existing draft. Close it yourself before checking this post.');
+        return { dialog: existing, identity: this.identity(existing) };
+      }
+      const shareButtons = root => this.all('button,[role="button"]', root).filter(el => /^Share(?:, send this to friends or post it on your profile\.)?$/.test(clean(el.getAttribute('aria-label')) || text(el)));
+      let dialogs = this.all('[role="dialog"]');
+      if (dialogs.some(el => this.title(el).some(title => /^(?:Post|.+['’]s post)$/i.test(title))) && !dialogs.some(el => shareButtons(el).length)) {
+        await this.wait(() => this.all('[role="dialog"]').some(el => shareButtons(el).length), 'the permalink post viewer to finish loading');
+        dialogs = this.all('[role="dialog"]');
+      }
+      let sourceRoot = this.doc;
+      if (dialogs.length) {
+        // Shared permalink URLs often open the requested post in a modal above a profile feed.
+        const viewers = dialogs.filter(el => shareButtons(el).length === 1 && !this.all('[contenteditable="true"],textarea', el).some(e => /say something|create a (?:public )?post|write something|what.s on your mind/i.test(e.getAttribute('aria-label') || e.getAttribute('aria-placeholder') || '')));
+        const innermost = viewers.filter(el => !viewers.some(other => other !== el && el.contains(other)));
+        if (innermost.length !== 1 || dialogs.some(el => !el.contains(innermost[0]) && !innermost[0].contains(el))) throw fail('An unexpected dialog is already open in the working tab. Close it before checking the post.');
+        sourceRoot = innermost[0];
+      }
       const share = await this.wait(() => {
-        const candidates = this.all('button,[role="button"]').filter(el => /^Share(?:, send this to friends or post it on your profile\.)?$/.test(clean(el.getAttribute('aria-label')) || text(el)));
+        const candidates = shareButtons(sourceRoot);
         if (candidates.length > 1) throw fail('Several posts are visible. Use an individual post permalink.');
         return candidates[0];
       }, 'the source post’s Share button');
@@ -153,17 +171,99 @@
       throw fail('Group discovery did not reach the end. No incomplete group list was saved.');
     }
     preview() {
-      const root = this.doc.querySelector('[role="complementary"],aside,[role="main"],main') ?? this.doc.body;
+      const postViewer = this.all('[role="dialog"]').find(el => this.all('button,[role="button"]', el).some(b => /^Share(?:, send this to friends or post it on your profile\.)?$/.test(clean(b.getAttribute('aria-label')) || text(b))));
+      const root = postViewer ?? this.doc.querySelector('[role="complementary"],aside,[role="main"],main') ?? this.doc.body;
       const message = root.querySelector('[data-ad-preview="message"],[data-ad-comet-preview="message"],[data-ad-rendering-role="story_message"]') ?? this.all('[dir="auto"]', root).find(el => text(el).length >= 25 && !el.closest('button,[role="button"],a,h1,h2,h3,h4,[role="heading"],[contenteditable="true"]') && !el.querySelector('button,[role="button"],a,[contenteditable="true"]'));
       return { text: text(message).slice(0, 500), title: this.doc.title || 'Facebook post' };
+    }
+    shareSource(dialog) {
+      // Read a permalink already exposed by the visible Share sheet. Never call a private API.
+      for (const link of this.all('a[href]', dialog)) {
+        try {
+          let target = new URL(link.getAttribute('href'), this.win.location.href);
+          if (target.hostname === 'l.facebook.com' && target.searchParams.has('u')) target = new URL(target.searchParams.get('u'));
+          if (target.hostname !== 'wa.me' && target.hostname !== 'api.whatsapp.com') continue;
+          let value = target.searchParams.get('text') || '';
+          for (let i = 0; i < 3 && !value.startsWith('https://'); i++) value = decodeURIComponent(value);
+          const candidate = new URL(value);
+          if (candidate.origin === 'https://www.facebook.com') return candidate.href;
+        } catch { /* Ignore unrelated or malformed share targets. */ }
+      }
+      return this.win.location.href;
+    }
+    async inspectPost() {
+      const preview = this.preview();
+      const { dialog, identity } = await this.openShare();
+      const sourceUrl = this.shareSource(dialog);
+      this.click(this.button('Close', dialog));
+      return { identity, preview, sourceUrl, pageUrl: this.win.location.href };
+    }
+    accountFingerprint() {
+      const accounts = this.all('button[aria-label],[role="button"][aria-label]').filter(el => /^Account(?:,|$)/.test(clean(el.getAttribute('aria-label'))));
+      if (accounts.length !== 1) throw fail('Could not identify the active Facebook account.');
+      const avatar = accounts[0].querySelector('svg image,img');
+      const value = fingerprint(avatar?.getAttribute('href') || avatar?.getAttribute('xlink:href') || avatar?.getAttribute('src'));
+      if (!value) throw fail('The active account’s avatar could not be verified.');
+      return value;
+    }
+    joinedRoot() {
+      if (!/^\/groups\/joins\/?$/.test(this.win.location.pathname)) throw fail('Open Facebook → Groups → Your groups, then choose Import from this page.');
+      const roots = this.all('main,[role="main"]').filter(el => this.all('h1,h2,h3,[role="heading"]', el).some(h => /^All groups you['’]ve joined/i.test(text(h))));
+      const root = roots.find(el => !roots.some(other => el !== other && el.contains(other)));
+      if (!root) throw fail('Could not locate All groups you’ve joined. Use the full Your groups page.');
+      return root;
+    }
+    joinedRows(root) {
+      const found = new Map();
+      for (const link of this.all('a[href]', root)) {
+        let url; try { url = new URL(link.getAttribute('href'), this.win.location.href); } catch { continue; }
+        const id = url.origin === 'https://www.facebook.com' && url.pathname.match(/^\/groups\/([\w.\-]+)\/?$/)?.[1];
+        if (!id || ['joins', 'feed', 'discover', 'create'].includes(id.toLowerCase())) continue;
+        const name = text(link) || clean(link.getAttribute('aria-label')) || clean(link.querySelector('img')?.getAttribute('alt'));
+        if (!name || /^(View group|Visit group|See all|Group photo|Profile photo of group.*)$/i.test(name)) continue;
+        if (!found.has(id)) found.set(id, { id, name, privacy: 'Joined group', url: `https://www.facebook.com/groups/${id}/`, ambiguous: false });
+      }
+      return [...found.values()];
+    }
+    joinedScroller(root) {
+      for (let el = root; el; el = el.parentElement) if (el.scrollHeight > el.clientHeight + 5 && /(auto|scroll)/.test(this.win.getComputedStyle(el).overflowY)) return el;
+      return this.doc.scrollingElement ?? this.doc.documentElement;
+    }
+    async importJoined() {
+      this.guard(); const root = this.joinedRoot(), owner = this.accountFingerprint(), scroller = this.joinedScroller(root), originalTop = scroller.scrollTop;
+      const groups = new Map(); let stable = 0, previous = -1;
+      const expectedCount = () => {
+        const heading = this.all('h1,h2,h3,[role="heading"]', root).map(text).find(v => /^All groups you['’]ve joined/i.test(v));
+        const count = heading?.match(/\(([\d,]+)\)/)?.[1]; return count == null ? null : Number(count.replaceAll(',', ''));
+      };
+      try {
+        for (let round = 0; round < 250; round++) {
+          this.guard();
+          if (!root.isConnected || this.joinedRoot() !== root) throw fail('The Your groups page changed during import. Try again.');
+          if (this.accountFingerprint() !== owner) throw fail('The active Page or profile changed during import. Import the list again.', 'IDENTITY');
+          for (const group of this.joinedRows(root)) groups.set(group.id, group);
+          const expected = expectedCount(), atEnd = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 5;
+          stable = groups.size === previous ? stable + 1 : 0;
+          if ((expected !== null && groups.size === expected && stable >= 1) || (atEnd && stable >= 3)) {
+            if (expected !== null && groups.size !== expected) throw fail(`Facebook lists ${expected} joined groups, but only ${groups.size} could be read. The incomplete list was not saved.`);
+            return { groups: [...groups.values()], fingerprint: owner, pageUrl: this.win.location.href, count: groups.size };
+          }
+          previous = groups.size;
+          scroller.scrollTop = Math.min(scroller.scrollTop + Math.max(200, scroller.clientHeight * .75), scroller.scrollHeight);
+          scroller.dispatchEvent(new this.win.Event('scroll', { bubbles: true }));
+          await sleep(this.settle);
+        }
+        throw fail('The joined-group list did not finish loading. No incomplete list was saved.');
+      } finally { if (scroller.isConnected) scroller.scrollTop = originalTop; }
     }
     async discover() {
       const preview = this.preview();
       const { dialog, identity } = await this.openShare();
+      const sourceUrl = this.shareSource(dialog);
       const picker = await this.openPicker(dialog);
       const groups = await this.scan(picker);
       this.click(this.button('Close', picker));
-      return { identity, groups, preview, sourceUrl: this.win.location.href };
+      return { identity, groups, preview, sourceUrl, pageUrl: this.win.location.href };
     }
     verifyAttachment(dialog, source, preview) {
       const url = new URL(source);
@@ -261,7 +361,7 @@
       if (active) { reply({ ok: false, error: 'A native Facebook operation is already running.' }); return; }
       active = new Adapter();
       const current = active;
-      const action = message.type === 'DISCOVER' ? current.discover() : message.type === 'SHARE' ? current.submit(message.data, identity => chrome.runtime.sendMessage({ type: 'AUTHORIZE_SUBMIT', operationId: message.operationId, batchId: message.batchId, itemId: message.itemId, attempt: message.attempt, identity })) : Promise.reject(fail('Unknown adapter action.'));
+      const action = message.type === 'IMPORT_JOINED' ? current.importJoined() : message.type === 'INSPECT_POST' ? current.inspectPost() : message.type === 'DISCOVER' ? current.discover() : message.type === 'SHARE' ? current.submit(message.data, identity => chrome.runtime.sendMessage({ type: 'AUTHORIZE_SUBMIT', operationId: message.operationId, batchId: message.batchId, itemId: message.itemId, attempt: message.attempt, identity })) : Promise.reject(fail('Unknown adapter action.'));
       action.then(data => reply({ ok: true, data }), error => reply({ ok: false, error: error.message, code: error.code })).finally(() => { active = null; });
       return true;
     });
